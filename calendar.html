@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2-Month Calendar</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #fff;
+      display: flex;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .calendar-container {
+      width: 320px;
+      border-radius: 10px;
+    }
+    .month-view {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .month {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      text-align: center;
+      gap: 8px;
+    }
+    .day, .date {
+      padding: 10px;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    .date.inactive {
+      color: #ccc;
+      pointer-events: none;
+    }
+    .date.booked {
+      text-decoration: line-through;
+      color: #aaa;
+      pointer-events: none;
+    }
+    .date.selected {
+      background: black;
+      color: white;
+    }
+    .date.range {
+      background: #e5e5e5;
+      color: black;
+    }
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .controls button:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    .apply-btn {
+      margin-top: 1rem;
+      width: 100%;
+      padding: 10px;
+      border: none;
+      background: black;
+      color: white;
+      border-radius: 30px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="calendar-container">
+    <div class="controls">
+      <button id="prevBtn" disabled>‹</button>
+      <span>Select dates</span>
+      <button id="nextBtn">›</button>
+    </div>
+    <div id="months" class="month-view"></div>
+    <button class="apply-btn">APPLY</button>
+  </div>
+
+  <script>
+    const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    const bookedDates = ["2025-04-24", "2025-04-25", "2025-04-26"];
+    let startDate = null;
+    let endDate = null;
+    let currentDate = new Date();
+    currentDate.setDate(1);
+
+    function getMonthMatrix(year, month) {
+      const matrix = [];
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      let startDay = firstDay.getDay();
+
+      let daysInMonth = lastDay.getDate();
+      let day = 1;
+
+      for (let i = 0; i < 6; i++) {
+        let week = [];
+        for (let j = 0; j < 7; j++) {
+          if ((i === 0 && j < startDay) || day > daysInMonth) {
+            week.push(-1);
+          } else {
+            week.push(day++);
+          }
+        }
+        matrix.push(week);
+      }
+      return matrix;
+    }
+
+    function renderCalendar(startMonth) {
+      const container = document.getElementById('months');
+      container.innerHTML = '';
+
+      for (let i = 0; i < 2; i++) {
+        const monthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + i);
+        const year = monthDate.getFullYear();
+        const month = monthDate.getMonth();
+        const matrix = getMonthMatrix(year, month);
+
+        const title = document.createElement('div');
+        title.textContent = monthDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+        title.style.fontWeight = 'bold';
+        title.style.marginBottom = '0.5rem';
+        container.appendChild(title);
+
+        const monthEl = document.createElement('div');
+        monthEl.classList.add('month');
+
+        weekdays.forEach(day => {
+          const dayEl = document.createElement('div');
+          dayEl.classList.add('day');
+          dayEl.textContent = day;
+          monthEl.appendChild(dayEl);
+        });
+
+        matrix.forEach(week => {
+          week.forEach(d => {
+            const dateEl = document.createElement('div');
+            dateEl.classList.add('date');
+            if (d === -1) {
+              dateEl.classList.add('inactive');
+              dateEl.textContent = '';
+            } else {
+              const fullDate = `${year}-${(month + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
+              dateEl.textContent = d;
+              if (bookedDates.includes(fullDate)) {
+                dateEl.classList.add('booked');
+              } else {
+                dateEl.addEventListener('click', () => handleDateClick(fullDate, dateEl));
+              }
+            }
+            monthEl.appendChild(dateEl);
+          });
+        });
+
+        container.appendChild(monthEl);
+      }
+    }
+
+    function handleDateClick(dateStr, el) {
+      if (!startDate || (startDate && endDate)) {
+        startDate = dateStr;
+        endDate = null;
+        document.querySelectorAll('.date').forEach(d => d.classList.remove('selected', 'range'));
+        el.classList.add('selected');
+      } else {
+        endDate = dateStr;
+        const [sy, sm, sd] = startDate.split('-').map(Number);
+        const [ey, em, ed] = endDate.split('-').map(Number);
+        const start = new Date(sy, sm - 1, sd);
+        const end = new Date(ey, em - 1, ed);
+
+        if (end < start) [startDate, endDate] = [endDate, startDate];
+
+        document.querySelectorAll('.date').forEach(dateEl => {
+          const dateText = dateEl.textContent;
+          if (!dateText) return;
+          const parent = dateEl.parentElement.previousSibling.textContent;
+          const parts = parent.split(' ');
+          const m = new Date(Date.parse(parts[0] + " 1, 2000")).getMonth();
+          const y = parseInt(parts[1]);
+          const full = `${y}-${(m + 1).toString().padStart(2, '0')}-${dateText.padStart(2, '0')}`;
+          const d = new Date(full);
+          if (d >= new Date(startDate) && d <= new Date(endDate)) {
+            if (full === startDate || full === endDate) {
+              dateEl.classList.add('selected');
+            } else {
+              dateEl.classList.add('range');
+            }
+          }
+        });
+      }
+    }
+
+    document.getElementById('nextBtn').addEventListener('click', () => {
+      currentDate.setMonth(currentDate.getMonth() + 1);
+      renderCalendar();
+      document.getElementById('prevBtn').disabled = false;
+    });
+
+    document.getElementById('prevBtn').addEventListener('click', () => {
+      const now = new Date();
+      now.setDate(1);
+      if (currentDate.getMonth() > now.getMonth() || currentDate.getFullYear() > now.getFullYear()) {
+        currentDate.setMonth(currentDate.getMonth() - 1);
+        renderCalendar();
+        if (currentDate.getMonth() === now.getMonth() && currentDate.getFullYear() === now.getFullYear()) {
+          document.getElementById('prevBtn').disabled = true;
+        }
+      }
+    });
+
+    renderCalendar();
+  </script>
+</body>
+</html>
